@@ -16,53 +16,57 @@
 // ESC"]12;#FFFFFF"ESC. 
 #define ESC_SEQ_CURSOR_COLOR_MAX_LEN (6 + MAX_COLOR_STR_LEN)
 
-// Writes 'str' to 'buf' if its length is less than 'max'. Does not write the
-// null terminator or consider it in the size. Returns true if the string fits 
-// and was written.
-static bool write_if_fits(char *const buf, rsize_t max, const char *const str) {
+// Writes 'str' to 'buf', including null term, if strlen(str) is less than
+// 'maxlen'. Returns number of chars written, not including the null term, or 0
+// if 'str' could not be written.
+static size_t write_if_fits(
+        char *const buf, size_t maxlen, const char *const str)
+{
+    assert(buf != NULL);
+    assert(str != NULL);
+
     size_t len = strlen(str);
-    if (len > max) return false;
+    if (len >= maxlen) return 0;
 
-    for (size_t i = 0; i < len; i++)
-        buf[i] = str[i];
+    if (strcpy_s(buf, maxlen, str) != 0) return 0;
 
-    return true;
+    return len;
 }
 
-bool termutils_set_bold_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_bold_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? ESC"[1m" : ESC"[22m");
 }
 
-bool termutils_set_faint_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_faint_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? ESC"[2m" : ESC"[22m");
 }
 
-bool termutils_set_italic_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_italic_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? "\033[3m" : "\033[23m");
 }
 
-bool termutils_set_underline_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_underline_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? "\033[4m" : "\033[24m");
 }
 
-bool termutils_set_blinking_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_blinking_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? "\033[5m" : "\033[25m");
 }
 
-bool termutils_set_inverse_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_inverse_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? "\033[7m" : "\033[27m");
 }
 
-bool termutils_set_hidden_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_hidden_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? "\033[8m" : "\033[28m");
 }
 
-bool termutils_set_strikethrough_buf(char *const buf, rsize_t maxlen, bool on) {
+size_t termutils_set_strikethrough_buf(char *const buf, size_t maxlen, bool on) {
     return write_if_fits(buf, maxlen, on ? "\033[9m" : "\033[29m");
 }
 
-bool termutils_set_text_color_buf(
-        char *const buf, rsize_t maxlen, termutils_color color)
+size_t termutils_set_text_color_buf(
+        char *const buf, size_t maxlen, termutils_color color)
 {
     switch (color) {
     case TERMUTILS_COLOR_BLACK:
@@ -107,15 +111,15 @@ bool termutils_set_text_color_buf(
     }
 }
 
-bool termutils_set_text_color_256_buf(
-        char *const buf, rsize_t maxlen, int color_code)
+size_t termutils_set_text_color_256_buf(
+        char *const buf, size_t maxlen, int color_code)
 {
 #ifdef TERMUTILS_DEBUG_ASSERT
     assert(color_code >= 0 && color_code <= 255);
     // don't call this if you don't have room
-    assert(maxlen >= ESC_SEQ_COLOR_256_MAX_LEN);
+    assert(maxlen > ESC_SEQ_COLOR_256_MAX_LEN);
 #endif
-    if (maxlen < ESC_SEQ_COLOR_256_MAX_LEN) return false;
+    if (maxlen <= ESC_SEQ_COLOR_256_MAX_LEN) return 0;
 
     char seq[ESC_SEQ_COLOR_256_MAX_LEN + 1];
     int len = sprintf_s(seq, sizeof(seq), ESC"[38;5;%dm", color_code);
@@ -123,16 +127,16 @@ bool termutils_set_text_color_256_buf(
 #ifdef TERMUTILS_DEBUG_ASSERT
     assert(len <= ESC_SEQ_COLOR_256_MAX_LEN);
 #endif
-    if (len > (int) maxlen) return false;
-    return write_if_fits(buf, len, seq);
+    if (len > (int) maxlen) return 0;
+    return write_if_fits(buf, maxlen, seq);
 }
 
-bool termutils_reset_text_color_buf(char *const buf, rsize_t maxlen) {
+size_t termutils_reset_text_color_buf(char *const buf, size_t maxlen) {
     return write_if_fits(buf, maxlen, "\033[39m");
 }
 
-bool termutils_set_bg_color_buf(
-        char *const buf, rsize_t maxlen, termutils_color color)
+size_t termutils_set_bg_color_buf(
+        char *const buf, size_t maxlen, termutils_color color)
 {
     switch (color) {
     case TERMUTILS_COLOR_BLACK:
@@ -177,8 +181,8 @@ bool termutils_set_bg_color_buf(
     }
 }
 
-bool termutils_set_bg_color_256_buf(
-        char *const buf, rsize_t maxlen, int color_code)
+size_t termutils_set_bg_color_256_buf(
+        char *const buf, size_t maxlen, int color_code)
 {
 #ifdef TERMUTILS_DEBUG_ASSERT
     assert(color_code >= 0 && color_code <= 255);
@@ -196,16 +200,16 @@ bool termutils_set_bg_color_256_buf(
     return write_if_fits(buf, len, seq);
 }
 
-bool termutils_reset_bg_color_buf(char *const buf, rsize_t maxlen) {
+size_t termutils_reset_bg_color_buf(char *const buf, size_t maxlen) {
     return write_if_fits(buf, maxlen, "\033[49m");
 }
 
-bool termutils_reset_all_buf(char *const buf, rsize_t maxlen) {
+size_t termutils_reset_all_buf(char *const buf, size_t maxlen) {
     return write_if_fits(buf, maxlen, "\033[0m");
 }
 
-bool termutils_set_cursor_color_buf(
-        char *const buf, rsize_t maxlen, const char *const color_str)
+size_t termutils_set_cursor_color_buf(
+        char *const buf, size_t maxlen, const char *const color_str)
 {
 #ifdef TERMUTILS_DEBUG_ASSERT
     assert(strlen(color_str) < MAX_COLOR_STR_LEN);
@@ -223,7 +227,7 @@ bool termutils_set_cursor_color_buf(
     return write_if_fits(buf, maxlen, seq);
 }
 
-bool termutils_reset_cursor_color_buf(char *const buf, rsize_t maxlen) {
+size_t termutils_reset_cursor_color_buf(char *const buf, size_t maxlen) {
     return write_if_fits(buf, maxlen, "\x1b]112\x07");
 }
 
